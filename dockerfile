@@ -1,4 +1,7 @@
-FROM mariadb:10.6.4
-ENV MARIADB_ROOT_PASSWORD=root
-ADD init.sql /docker-entrypoint-initdb.d
-EXPOSE 3306
+FROM node:16
+WORKDIR /usr/scr/app
+COPY package.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["node","app.js"]

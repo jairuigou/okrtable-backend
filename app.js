@@ -9,7 +9,7 @@ app.use(express.urlencoded({extended:false}));
 app.use(express.json());
 
 mariadb.createConnection({
-    host: '0.0.0.0',
+    host: 'db',
     user: 'root',
     password: 'root',
     database: 'okrtabledb'
