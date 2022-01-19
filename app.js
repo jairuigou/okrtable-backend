@@ -1,3 +1,4 @@
+require('dotenv').config()
 const mariadb = require('mariadb');
 const express = require('express');
 const cors = require('cors');
@@ -11,9 +12,9 @@ app.use(express.json());
 app.use(cors());
 
 mariadb.createConnection({
-    host: 'db',
-    user: 'root',
-    password: 'root',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,
     database: 'okrtabledb'
 })
 .then(conn=>{
@@ -57,6 +58,23 @@ mariadb.createConnection({
                 res.json({error:"query error"});
             })
     });
+
+    // get progress by id
+    // id: yyyymmddnn
+    app.post('/getprogress',checkRequest,(req,res)=>{
+        if( !("id" in req.body) ){
+            res.json({error:"no id parameter"});
+            return;
+        }
+        var querySql = "select * from progress where id = " + req.body.id;
+        conn.query(querySql)
+        .then((rows)=>{
+            res.send(rows);
+        })
+        .catch(err=>{
+            res.json({error:err});
+        })
+    })
 
     // create new record
     // detail: String
@@ -201,7 +219,7 @@ mariadb.createConnection({
 
         conn.query(queryUpdate)
         .then(rows=>{
-            var createDate = date2str(new Date(Date.now())) 
+            var createDate = date2str(new Date(Date.now()));
             var queryInsert = "insert into ddl values (" + id + ",\'" + ddl + "\',\'" +
                                 createDate + "\' )";
             return conn.query(queryInsert);
@@ -216,8 +234,29 @@ mariadb.createConnection({
     });
 
     // update progress
+    // id: yyyymmddnn
+    // progress: String
     app.post('/updateprogress',checkRequest,(req,res)=>{
-
+        if( !("id" in req.body) ){
+            res.json({error:"no id parameter"});
+            return;
+        }
+        if( !("progress" in req.body) ){
+            res.json({error:"no progress parameter"});
+            return;
+        }
+        var id = req.body.id;
+        var progress = req.body.progress;
+        var createDate = date2str(new Date(Date.now()));
+        var queryUpdate = "insert into progress values (" + id + ",\'" + progress + "\',\'"+
+                            createDate + "\' )";
+        conn.query(queryUpdate)
+        .then(rows=>{
+            res.json({success:"success"});
+        })
+        .catch(err=>{
+            res.json({error:err});
+        });
     });
 
     app.listen(port,()=>{console.log("listening at http://localhost:${port}")});

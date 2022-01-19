@@ -17,3 +17,10 @@ create table if not exists ddl (
     createtime timestamp,
     foreign key (id) references info (id)
 );
+
+create table if not exists progress (
+    id int,
+    progress varchar(1000),
+    createtime timestamp,
+    foreign key (id) references info (id)
+);
