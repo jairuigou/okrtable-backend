@@ -1,4 +1,5 @@
 const schedule = require('node-schedule');
+const nodemailer = require('nodemailer');
 
 function date2str(date)
 {
@@ -61,6 +62,7 @@ async function notify(id,param)
 {
     try{
         var rows = await param.conn.query("select * from info where id = " + id);
+        sendMessage(rows[0].detail + "\n" + rows[0].ddl);
         console.log("notification",rows[0].detail,rows[0].ddl);
     }
     catch(err){
@@ -136,6 +138,29 @@ async function updateStateHandler(info,conn)
     catch(err){
         console.log("update state error",err);
     }
+}
+async function sendMessage(msg)
+{
+  var subject = "okrtable notification";
+  var text = msg;
+  let transporter = nodemailer.createTransport({
+    host: "smtp.163.com",
+    port: 465,
+    secure: true, // true for 465, false for other ports
+    auth: {
+      user: process.env.MAIL_USER, // generated ethereal user
+      pass: process.env.MAIL_PASS, // generated ethereal password
+    },
+  });
+
+  // send mail with defined transport object
+  let info = await transporter.sendMail({
+    from: process.env.MAIL_FROM, // sender address
+    to: process.env.MAIL_SENDTO, // list of receivers
+    subject: subject, // Subject line
+    text: text, // plain text body
+  });
+  console.log("Message sent: %s", info.messageId);
 }
 
 module.exports.date2str = date2str;
