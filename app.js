@@ -239,8 +239,8 @@ app.use(cors());
                             + "\' where id = " + req.body.id;
             }
             else{
-                sql = "update info set state = " + req.body.state
-                            + " where id = " + req.body.id;
+                sql = "update info set state = \'" + req.body.state
+                            + "\' where id = " + req.body.id;
             }
             return conn.query(sql);
         })
@@ -317,12 +317,23 @@ app.use(cors());
         }
         var id = req.body.id;
         var progress = req.body.progress;
-        var queryUpdate = "insert into progress (id,progress) values (" + id + ",\'" + progress + "\')";
-        conn.query(queryUpdate)
+        
+        var sql = "select count(*) as count from progress where id =" + id;
+        conn.query(sql)
+        .then(rows=>{
+            if( rows[0].count == 0){
+                sql = "insert into progress (id,progress) values (" + id + ",\'" + progress + "\')";
+            }
+            else{
+                sql = "update progress set progress = \'" + progress + "\' where id = " + id;
+            }
+            return conn.query(sql)
+        })
         .then(rows=>{
             res.json({success:"success"});
         })
         .catch(err=>{
+            console.log("update progress error:",err);
             res.json({error:err});
         });
     });
