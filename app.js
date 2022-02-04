@@ -284,7 +284,7 @@ app.use(cors());
                 return;
             } 
             
-            sql = "update info set ddl = \'" + ddl + "\' where id = " + id;
+            sql = "update info set ddl = \'" + req.body.ddl + "\' where id = " + id;
             return conn.query(sql);
         })
         .then(rows=>{
