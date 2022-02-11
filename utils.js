@@ -82,8 +82,9 @@ function updateAutoDelayJob(info,param)
     var autoDelayDate = new Date(info.ddl);
     if( autoDelayDate <= Date.now()){
         autoDelayDate = new Date(Date.now());
-        autoDelayDate.setSeconds(notifyDate.getSeconds() + 10); 
+        autoDelayDate.setSeconds(autoDelayDate.getSeconds() + 10); 
     }
+    console.log("add autodelay ",autoDelayDate,info.level,info.id);
     addJobs(info.id,autoDelayDate,param.autoDelayJobs,autoDelay.bind(null,info.id,param));
 }
 async function autoDelay(id,param)
@@ -95,7 +96,7 @@ async function autoDelay(id,param)
     catch(err){
         console.log("autodelay:",err);
     }
-    await updateStateHandler(row,param.conn); 
+    await updateStateHandler(rows[0],param.conn); 
     updateNotifyJob(rows[0],param);
     updateAutoDelayJob(rows[0],param);
 }
