@@ -24,18 +24,11 @@ function isActivated(state)
     return state == "PENDING" || state == "INPROG";
 }
 
-async function initJobs(param)
+function initJobs(param)
 {
-    try{
-        var rows = await param.conn.query("select * from info where state = \'PENDING\' or state = \'INPROG\'");
-    }
-    catch(err){
-        console.log("Init jobs error:",err);
-        return;
-    }
-
+    var rows = param.db.prepare("select * from info where state = \'PENDING\' or state = \'INPROG\'").all();
     for(var i=0;i<rows.length;++i){
-        await updateStateHandler(rows[i],param.conn);
+        updateStateHandler(rows[i],param.db);
         updateNotifyJob(rows[i],param);
         updateAutoDelayJob(rows[i],param);
     }
@@ -58,15 +51,12 @@ function updateNotifyJob(info,param)
     console.log("add notify ", notifyDate,info.level,info.id);
     addJobs(info.id,notifyDate,param.notifyJobs,notify.bind(null,info.id,param));
 }
-async function notify(id,param)
+function notify(id,param)
 {
-    try{
-        var rows = await param.conn.query("select * from info where id = " + id);
-        sendMessage(rows[0].detail + "\n" + rows[0].ddl);
-        console.log("notification",rows[0].detail,rows[0].ddl);
-    }
-    catch(err){
-        console.log("notify:",err);
+    var row = param.db.prepare("select * from info where id = " + id).get();
+    if( row ){
+        sendMessage(row.detail + "\n" + row.ddl);
+        console.log("notification",row.detail,row.ddl);
     }
     delete param.notifyJobs[id];
 }
@@ -87,20 +77,15 @@ function updateAutoDelayJob(info,param)
     console.log("add autodelay ",autoDelayDate,info.level,info.id);
     addJobs(info.id,autoDelayDate,param.autoDelayJobs,autoDelay.bind(null,info.id,param));
 }
-async function autoDelay(id,param)
+function autoDelay(id,param)
 {
-    try{
-        var rows = await param.conn.query("select * from info where id = "+id);
-        console.log("autodelay:",rows[0].id);
-    }
-    catch(err){
-        console.log("autodelay:",err);
-    }
-    await updateStateHandler(rows[0],param.conn); 
-    updateNotifyJob(rows[0],param);
-    updateAutoDelayJob(rows[0],param);
+    var row = param.db.prepare("select * from info where id = "+id).get();
+    console.log("autodelay:",row.id);
+    updateStateHandler(row,param.db); 
+    updateNotifyJob(row,param);
+    updateAutoDelayJob(row,param);
 }
-async function updateStateHandler(info,conn)
+function updateStateHandler(info,db)
 {
     var ddlDate = new Date(info.ddl);
     var currentDate = new Date(Date.now());
@@ -114,31 +99,13 @@ async function updateStateHandler(info,conn)
     if( info.priority < 0 ){
         info.priority = 0;
         info.state = "KILLED";
-        var queryUpdate = "update info set state = \'KILLED\',priority=0,ddl=\'"
-                            + date2str(new Date(Date.now()))+ "\'where id = " + info.id;
-        try{
-            await conn.query(queryUpdate);
-        }
-        catch(err){
-            console.log("update state error",err);
-        }
+        db.prepare("update info set state = \'KILLED\',priority=0,ddl=datetime('now','localtime') where id = " + info.id).run();
         return;
     }
-
     ddlDate = new Date(ddlDate.setDate(ddlDate.getDate() + (step*diff) ));
     var ddlStr = date2str(ddlDate);
     info.ddl = ddlStr;
-    var queryUpdateInfo = "update info set priority = " + info.priority + ", ddl = \'" + ddlStr + "\' where id = " + info.id;
-    var queryInsertDdl = "insert into ddl (id,ddl) values (" + info.id + ",\'" + ddlStr + "\')";
-    console.log(queryUpdateInfo);
-    console.log(queryInsertDdl);
-    try{
-        await conn.query(queryUpdateInfo);
-        await conn.query(queryInsertDdl);
-    }
-    catch(err){
-        console.log("update state error",err);
-    }
+    db.prepare("update info set priority = " + info.priority + ", ddl = datetime('" + ddlStr + "') where id = " + info.id).run();
 }
 async function sendMessage(msg)
 {
