@@ -121,14 +121,19 @@ async function sendMessage(msg)
     },
   });
 
-  // send mail with defined transport object
-  let info = await transporter.sendMail({
-    from: process.env.MAIL_FROM, // sender address
-    to: process.env.MAIL_SENDTO, // list of receivers
-    subject: subject, // Subject line
-    text: text, // plain text body
-  });
-  console.log("Message sent: %s", info.messageId);
+  try{
+    // send mail with defined transport object
+    let info = await transporter.sendMail({
+        from: process.env.MAIL_FROM, // sender address
+        to: process.env.MAIL_SENDTO, // list of receivers
+        subject: subject, // Subject line
+        text: text, // plain text body
+    });
+    console.log("Message sent: %s", info.messageId);
+  }
+  catch(err){
+      console.log("Send mail failed:",err.message);
+  }
 }
 
 module.exports.date2str = date2str;
