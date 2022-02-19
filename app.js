@@ -305,7 +305,7 @@ app.post('/updateprogress',checkRequest,(req,res)=>{
             db.prepare("insert into progress (id,progress,createtime) values (" + id + ",\'" + progress + "\',datetime('now','localtime'))").run();
         }
         else{
-            db.prepare("update progress set progress = \'" + progress + "\', createtime=datetime('now','localtime') where id = " + id);
+            db.prepare("update progress set progress = \'" + progress + "\', createtime=datetime('now','localtime') where id = " + id).run();
         }
         res.json({success:"success"});
     }
