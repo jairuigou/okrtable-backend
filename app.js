@@ -220,7 +220,8 @@ app.post('/updatestate',checkRequest,(req,res)=>{
         row.state = state;
         updateNotifyJob(row,param);
         updateAutoDelayJob(row,param);
-        var stmt = db.prepare("update info set state = \'" + req.body.state + "\', ddl= datetime('now','localtime')" +" where id = " + req.body.id);
+        var curDate = date2str(new Date(Date.now()));
+        var stmt = db.prepare("update info set state = \'" + req.body.state + "\', ddl=\'" + curDate + "\' where id = " + req.body.id);
     }
     else{
         var stmt = db.prepare("update info set state = \'" + req.body.state + "\' where id = " + req.body.id);
@@ -228,7 +229,7 @@ app.post('/updatestate',checkRequest,(req,res)=>{
 
     try{
         stmt.run();
-        res.json({success:"success"});
+        res.json({success:"success",timestamp:curDate});
     }
     catch(err){
         res.json({error:"/updatestate unknown error"});
