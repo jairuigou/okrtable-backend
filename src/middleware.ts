@@ -1,6 +1,7 @@
-function checkRequest(req,res,next){
+import { Request, Response, NextFunction } from 'express';
+
+export function checkRequest(req:Request,res:Response,next:NextFunction){
     if( "id" in req.body ){
-        var re = new RegExp(/^\d{10}$/);
         if( !(/^\d{10}$/).test(req.body.id) ){
             res.json({error:"id format error : YYYYMMDDNN"});
             return;
@@ -46,6 +47,3 @@ function checkRequest(req,res,next){
     
     next();
 }
-
-
-module.exports.checkRequest = checkRequest;

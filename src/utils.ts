@@ -1,7 +1,24 @@
-const schedule = require('node-schedule');
-const nodemailer = require('nodemailer');
+import schedule = require('node-schedule');
+import nodemailer = require('nodemailer');
+import Sqlite = require('better-sqlite3');
 
-function date2str(date)
+export type jobsMapType = Record<number,schedule.Job>;
+export interface resourceType{
+    db: Sqlite.Database;
+    notifyJobs: jobsMapType;
+    autoDelayJobs: jobsMapType;
+}
+export interface infoType{
+    id: number;
+    detail: string;
+    level: number;
+    priority: number;
+    state: string;
+    ddl: string;
+}
+
+
+export function date2str(date:Date)
 {
     return date.getFullYear().toString().padStart(4,"0") + "-" + 
             (date.getMonth()+1).toString().padStart(2,"0") + "-" +
@@ -10,30 +27,30 @@ function date2str(date)
                   date.getMinutes().toString().padStart(2,"0") + ":" +
                     date.getSeconds().toString().padStart(2,"0"); 
 }
-function addJobs(id,date,jobs,callbackfun)
+function addJobs(id:number,date:Date,jobs:jobsMapType,callbackfun:()=>void)
 {
     if( id in jobs){
-        jobs[id].reschedule(date);
+        jobs[id].reschedule(date.getTime());
     }
     else{
         jobs[id] = schedule.scheduleJob(date,callbackfun);
     }
 }
-function isActivated(state)
+export function isActivated(state:string)
 {
     return state == "PENDING" || state == "INPROG";
 }
 
-function initJobs(param)
+export function initJobs(param:resourceType)
 {
-    var rows = param.db.prepare("select * from info where state = \'PENDING\' or state = \'INPROG\'").all();
-    for(var i=0;i<rows.length;++i){
+    const rows = param.db.prepare("select * from info where state = 'PENDING' or state = 'INPROG'").all();
+    for(let i=0;i<rows.length;++i){
         updateStateHandler(rows[i],param.db);
         updateNotifyJob(rows[i],param);
         updateAutoDelayJob(rows[i],param);
     }
 }
-function updateNotifyJob(info,param)
+export function updateNotifyJob(info:infoType,param:resourceType)
 {
     if( !isActivated(info.state) ){
         if( info.id in param.notifyJobs ){
@@ -42,25 +59,25 @@ function updateNotifyJob(info,param)
         }
         return;
     }
-    var notifyDate = new Date(info.ddl);
+    let notifyDate = new Date(info.ddl);
     notifyDate.setDate(notifyDate.getDate() - (info.level == 0 ? 7:1));
-    if(notifyDate <= Date.now()){
+    if(notifyDate.getTime() <= Date.now()){
         notifyDate = new Date(Date.now());
         notifyDate.setSeconds(notifyDate.getSeconds() + 10); 
     } 
     console.log("add notify ", notifyDate,info.level,info.id);
     addJobs(info.id,notifyDate,param.notifyJobs,notify.bind(null,info.id,param));
 }
-function notify(id,param)
+function notify(id:number,param:resourceType)
 {
-    var row = param.db.prepare("select * from info where id = " + id).get();
+    const row = param.db.prepare("select * from info where id = " + id).get();
     if( row ){
         sendMessage(row.detail + "\n" + row.ddl);
         console.log("notification",row.detail,row.ddl);
     }
     delete param.notifyJobs[id];
 }
-function updateAutoDelayJob(info,param)
+export function updateAutoDelayJob(info:infoType,param:resourceType)
 {
     if( !isActivated(info.state) ){
         if( info.id in param.autoDelayJobs ){
@@ -69,49 +86,49 @@ function updateAutoDelayJob(info,param)
         }
         return;
     }
-    var autoDelayDate = new Date(info.ddl);
-    if( autoDelayDate <= Date.now()){
+    let autoDelayDate = new Date(info.ddl);
+    if( autoDelayDate.getTime() <= Date.now()){
         autoDelayDate = new Date(Date.now());
         autoDelayDate.setSeconds(autoDelayDate.getSeconds() + 10); 
     }
     console.log("add autodelay ",autoDelayDate,info.level,info.id);
     addJobs(info.id,autoDelayDate,param.autoDelayJobs,autoDelay.bind(null,info.id,param));
 }
-function autoDelay(id,param)
+function autoDelay(id:number,param:resourceType)
 {
-    var row = param.db.prepare("select * from info where id = "+id).get();
+    const row = param.db.prepare("select * from info where id = "+id).get();
     console.log("autodelay:",row.id);
     updateStateHandler(row,param.db); 
     updateNotifyJob(row,param);
     updateAutoDelayJob(row,param);
 }
-function updateStateHandler(info,db)
+function updateStateHandler(info:infoType,db:Sqlite.Database)
 {
-    var ddlDate = new Date(info.ddl);
-    var currentDate = new Date(Date.now());
+    let ddlDate = new Date(info.ddl);
+    const currentDate = new Date(Date.now());
     if( ddlDate > currentDate ){
         return;
     }
-    var diffDay = Math.floor((currentDate - ddlDate) / 86400000); // 24*3600*1000
-    var step = info.level == 0 ? 30 : 7;
-    var diff = Math.floor(diffDay/step) + 1;
+    const diffDay = Math.floor((currentDate.getTime() - ddlDate.getTime()) / 86400000); // 24*3600*1000
+    const step = info.level == 0 ? 30 : 7;
+    const diff = Math.floor(diffDay/step) + 1;
     info.priority -= diff;
     if( info.priority < 0 ){
         info.priority = 0;
         info.state = "KILLED";
-        db.prepare("update info set state = \'KILLED\',priority=0,ddl=datetime('now','localtime') where id = " + info.id).run();
+        db.prepare("update info set state = 'KILLED',priority=0,ddl=datetime('now','localtime') where id = " + info.id).run();
         return;
     }
     ddlDate = new Date(ddlDate.setDate(ddlDate.getDate() + (step*diff) ));
-    var ddlStr = date2str(ddlDate);
+    const ddlStr = date2str(ddlDate);
     info.ddl = ddlStr;
     db.prepare("update info set priority = " + info.priority + ", ddl = datetime('" + ddlStr + "') where id = " + info.id).run();
 }
-async function sendMessage(msg)
+async function sendMessage(msg:string)
 {
-  var subject = "okrtable notification";
-  var text = msg;
-  let transporter = nodemailer.createTransport({
+  const subject = "okrtable notification";
+  const text = msg;
+  const transporter = nodemailer.createTransport({
     host: "smtp.163.com",
     port: 465,
     secure: true, // true for 465, false for other ports
@@ -123,7 +140,7 @@ async function sendMessage(msg)
 
   try{
     // send mail with defined transport object
-    let info = await transporter.sendMail({
+    const info = await transporter.sendMail({
         from: process.env.MAIL_FROM, // sender address
         to: process.env.MAIL_SENDTO, // list of receivers
         subject: subject, // Subject line
@@ -135,9 +152,3 @@ async function sendMessage(msg)
       console.log("Send mail failed:",err.message);
   }
 }
-
-module.exports.date2str = date2str;
-module.exports.isActivated = isActivated;
-module.exports.initJobs = initJobs;
-module.exports.updateNotifyJob = updateNotifyJob;
-module.exports.updateAutoDelayJob = updateAutoDelayJob;

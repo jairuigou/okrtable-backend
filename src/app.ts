@@ -1,10 +1,11 @@
-require('dotenv').config()
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
-const {checkRequest} = require('./middleware');
-const {date2str,initJobs,isActivated,updateAutoDelayJob,updateNotifyJob} = require('./utils');
+import {checkRequest} from "./middleware";
+import {date2str,initJobs,isActivated,updateAutoDelayJob,updateNotifyJob,resourceType,infoType,jobsMapType} from "./utils";
+import dotenv = require('dotenv');
+import express = require('express');
+import cors = require('cors');
+import fs = require('fs');
+import path = require('path');
+import Sqlite = require('better-sqlite3')
 
 const dataBaseDirectory = "db";
 const dataBaseFileName = "okrtable.db";
@@ -12,6 +13,8 @@ const initSqlFile = "init.sql";
 
 const app = express();
 const port = 3000;
+
+dotenv.config();
 
 app.use(express.urlencoded({extended:false}));
 app.use(express.json());
@@ -27,13 +30,13 @@ catch(err){
     console.log("Creating database directory...");
     fs.mkdirSync(dataBaseDirectory);
 }
-const initSql = fs.readFileSync(initSqlFile,encode='utf-8');
-const db = require('better-sqlite3')(path.join(dataBaseDirectory,dataBaseFileName),{ verbose:console.log});
+const initSql = fs.readFileSync(initSqlFile,'utf-8');
+const db = Sqlite(path.join(dataBaseDirectory,dataBaseFileName),{ verbose:console.log});
 db.exec(initSql);
 
-var notifyJobs = {};
-var autoDelayJobs = {};
-var param = { 
+let notifyJobs:jobsMapType;
+let autoDelayJobs:jobsMapType;
+const param:resourceType = { 
     db:db,
     notifyJobs:notifyJobs, 
     autoDelayJobs:autoDelayJobs,
@@ -58,14 +61,14 @@ app.post('/',checkRequest,(req,res)=>{
         res.json({error:"no duration parameter"});
         return;
     }
-    var startDate = new Date(req.body.start + " 00:00:00");
-    var endDate = new Date(req.body.start + " 00:00:00");
+    const startDate = new Date(req.body.start + " 00:00:00");
+    const endDate = new Date(req.body.start + " 00:00:00");
     endDate.setDate(startDate.getDate() + parseInt(req.body.duration));
-    var startDateStr = date2str(startDate);  
-    var endDateStr = date2str(endDate);
+    const startDateStr = date2str(startDate);  
+    const endDateStr = date2str(endDate);
 
-    var queryRange = "select * from info where ddl >= \'" + 
-            startDateStr + "\' and ddl <= \'" + endDateStr + "\' ";
+    let queryRange = "select * from info where ddl >= '" + 
+            startDateStr + "' and ddl <= '" + endDateStr + "' ";
     if( "level" in req.body ){
         queryRange += "and level = " + req.body.level;
     }
@@ -76,7 +79,7 @@ app.post('/',checkRequest,(req,res)=>{
         queryRange += "and priority = " + req.body.priority;
     }
     
-    rows = db.prepare(queryRange).all();
+    const rows = db.prepare(queryRange).all();
     res.send(rows);
 });
 
@@ -87,8 +90,8 @@ app.post('/getprogress',checkRequest,(req,res)=>{
         res.json({error:"no id parameter"});
         return;
     }
-    var querySql = "select * from progress where id = " + req.body.id;
-    rows = db.prepare(querySql).all();
+    const querySql = "select * from progress where id = " + req.body.id;
+    const rows = db.prepare(querySql).all();
     res.send(rows);
 });
 
@@ -104,46 +107,46 @@ app.post('/create',checkRequest,(req,res)=>{
         res.json({error:"no detail parameter"});
         return;
     }
-    var detail = req.body.detail;
+    const detail = req.body.detail;
 
     if( !("level" in req.body) ){
         res.json({error:"no level parameter"});
         return;
     }
-    var level = req.body.level;
-
+    const level = req.body.level;
+    let priority:number;
     if( "priority" in req.body ){
-        var priority = req.body.priority;
+        priority = req.body.priority;
     }
     else{
-        var priority = 2;
+        priority = 2;
     }
-
+    let state:string;
     if( "state" in req.body ){
-        var state = req.body.state;
+        state = req.body.state;
     }
     else{
-        var state = "PENDING";
+        state = "PENDING";
     }
 
     if( !("ddl" in req.body) ){
         res.json({error:"no ddl parameter"});
         return;
     }
-    var ddl = req.body.ddl;
+    const ddl = req.body.ddl;
 
-    var today = new Date(Date.now());
-    var start = today.getFullYear() * 10000 + (today.getMonth()+1)*100 + today.getDate();
+    const today = new Date(Date.now());
+    let start = today.getFullYear() * 10000 + (today.getMonth()+1)*100 + today.getDate();
     start *= 100;
-    var end = start + 99;
-    var queryCount = "select count(*) as count from info where id >= " + start + " and id <= " + end;
-    var id = start;
+    const end = start + 99;
+    const queryCount = "select count(*) as count from info where id >= " + start + " and id <= " + end;
+    let id = start;
 
-    var row = db.prepare(queryCount).get();
+    const row = db.prepare(queryCount).get();
     id = start + row.count;
     try{
-        db.prepare("insert into info values (" + id + ",\'" + detail + "\'," 
-                        + level + "," + priority + ",\'" + state + "\', datetime('" +ddl+ "') )").run();
+        db.prepare("insert into info values (" + id + ",'" + detail + "'," 
+                        + level + "," + priority + ",'" + state + "', datetime('" +ddl+ "') )").run();
     }
     catch(err){
         res.json({error:"/create: unknown error"});
@@ -153,7 +156,7 @@ app.post('/create',checkRequest,(req,res)=>{
 
     res.json({success:id});
 
-    var info = {id:id,detail:detail,level:level,priority:priority,state:state,ddl:ddl};
+    const info:infoType = {id:id,detail:detail,level:level,priority:priority,state:state,ddl:ddl};
     updateNotifyJob(info,param);
     updateAutoDelayJob(info,param); 
 });
@@ -171,8 +174,8 @@ app.post('/updateprior',checkRequest,(req,res)=>{
         return;
     }
 
-    var id = req.body.id;
-    var row = db.prepare("select * from info where id = " + id).get();
+    const id = req.body.id;
+    const row = db.prepare("select * from info where id = " + id).get();
     if( !row ){
         res.json({error:"invalid id " + id});
         return;
@@ -205,31 +208,36 @@ app.post('/updatestate',checkRequest,(req,res)=>{
         return;
     }
     
-    var row = db.prepare("select * from info where id = " + req.body.id).get();
+    const row = db.prepare("select * from info where id = " + req.body.id).get();
     if( !row ){
-        res.json({error:"invalid id "+id});
+        res.json({error:"invalid id "+req.body.id});
         return;
     }
     if( !isActivated(row.state) ){
-        res.json({error:"target " + id + " state is " + row.state});
+        res.json({error:"target " + req.body.id + " state is " + row.state});
         return;
     }
 
-    var state = req.body.state;
+    const state = req.body.state;
+    let stmt:Sqlite.Statement;
+    let curDate:Date;
     if( state == 'KILLED' || state == 'DONE' || state == 'BLOCKED' ){
         row.state = state;
         updateNotifyJob(row,param);
         updateAutoDelayJob(row,param);
-        var curDate = date2str(new Date(Date.now()));
-        var stmt = db.prepare("update info set state = \'" + req.body.state + "\', ddl=\'" + curDate + "\' where id = " + req.body.id);
+        curDate = new Date(date2str(new Date(Date.now())));
+        stmt = db.prepare("update info set state = '" + req.body.state + "', ddl='" + curDate + "' where id = " + req.body.id);
     }
     else{
-        var stmt = db.prepare("update info set state = \'" + req.body.state + "\' where id = " + req.body.id);
+        stmt = db.prepare("update info set state = '" + req.body.state + "' where id = " + req.body.id);
     }
 
     try{
         stmt.run();
-        res.json({success:"success",timestamp:curDate});
+        if(curDate)
+            res.json({success:"success",timestamp:curDate});
+        else
+            res.json({success:"success"});
     }
     catch(err){
         res.json({error:"/updatestate unknown error"});
@@ -250,8 +258,8 @@ app.post('/updateddl',checkRequest,(req,res)=>{
         res.json({error:"no ddl parameter"});
         return;
     }
-    var id = req.body.id;
-    var row = db.prepare("select * from info where id = " + id).get();
+    const id = req.body.id;
+    const row = db.prepare("select * from info where id = " + id).get();
     if( !row ){
         res.json({error:"invalid id "+id});
         return;
@@ -261,14 +269,14 @@ app.post('/updateddl',checkRequest,(req,res)=>{
         return;
     }
 
-    var newDdl = new Date(req.body.ddl);
-    if( newDdl <= Date.now() ){
+    const newDdl = new Date(req.body.ddl);
+    if( newDdl.getTime() <= Date.now() ){
         res.json({error:"cannot set a ddl earlier than the current time " + Date.now()});
         return;
     } 
     
     try{
-        db.prepare("update info set ddl = \'" + req.body.ddl + "\' where id = " + id).run();
+        db.prepare("update info set ddl = '" + req.body.ddl + "' where id = " + id).run();
         res.json({success:"success"});
     }
     catch(err){
@@ -276,7 +284,12 @@ app.post('/updateddl',checkRequest,(req,res)=>{
         console.log("/updateddl",err);
     }
 
-    var info = {id:id,ddl:req.body.ddl,state:"PENDING"};
+    const info:infoType = {
+        id: id, ddl: req.body.ddl, state: "PENDING",
+        detail: "",
+        level: 0,
+        priority: 0
+    };
     updateNotifyJob(info,param);
     updateAutoDelayJob(info,param);
 });
@@ -293,20 +306,20 @@ app.post('/updateprogress',checkRequest,(req,res)=>{
         res.json({error:"no progress parameter"});
         return;
     }
-    var id = req.body.id;
-    var progress = req.body.progress;
+    const id = req.body.id;
+    const progress = req.body.progress;
     if( !progress.trim() ){
         res.json({warning:"empty progress content"});
         return;
     }
     
-    var row = db.prepare("select count(*) as count from progress where id =" + id).get();
+    const row = db.prepare("select count(*) as count from progress where id =" + id).get();
     try{
         if( row.count == 0){
-            db.prepare("insert into progress (id,progress,createtime) values (" + id + ",\'" + progress + "\',datetime('now','localtime'))").run();
+            db.prepare("insert into progress (id,progress,createtime) values (" + id + ",'" + progress + "',datetime('now','localtime'))").run();
         }
         else{
-            db.prepare("update progress set progress = \'" + progress + "\', createtime=datetime('now','localtime') where id = " + id).run();
+            db.prepare("update progress set progress = '" + progress + "', createtime=datetime('now','localtime') where id = " + id).run();
         }
         res.json({success:"success"});
     }
