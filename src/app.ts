@@ -12,7 +12,6 @@ const dataBaseFileName = "okrtable.db";
 const initSqlFile = "init.sql";
 
 const app = express();
-const port = 3000;
 
 dotenv.config();
 
@@ -43,6 +42,11 @@ const param:resourceType = {
  };
 
 initJobs(param);
+
+// for tests
+app.get('/',(req,res)=>{
+    res.send("hello");
+});
 
 // start : yyyy-mm-dd
 // duration : n days
@@ -329,4 +333,4 @@ app.post('/updateprogress',checkRequest,(req,res)=>{
     }
 });
 
-app.listen(port,()=>{console.log("listening at http://localhost:${port}")});
+export default app;
