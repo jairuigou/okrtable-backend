@@ -13,8 +13,9 @@
     "nodemailer": "^6.7.2"
   },
   "scripts": {
-    "test": "jest",
-    "build": "tsc && cp init.sql ./dist/src"
+    "test": "jest --verbose dist",
+    "build": "tsc && cp init.sql ./dist/src",
+    "build-test": "npm run build && npm run test"
   },
   "author": "",
   "license": "ISC",
