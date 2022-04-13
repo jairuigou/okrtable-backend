@@ -16,12 +16,12 @@ interface infoType{
 }
 
 export default class App{
-    public app:express.Application;
+    public server:express.Application;
     private db: Sqlite.Database; 
     private notifyJobs:jobsMapType;
     private autoDelayJobs:jobsMapType;
     private dataBaseDirectory = "db";
-    private dataBaseFileName = "okrtable.db";
+    private dataBaseFileName = "";
     private initSqlFile = "init.sql";
 
     initApi: ()=>void;
@@ -33,11 +33,11 @@ export default class App{
     updateStateHandler: (info:infoType)=>void;
     
 
-    constructor(istest = false){
-        this.app = express();
-        this.app.use(express.urlencoded({extended:false}));
-        this.app.use(express.json());
-        this.app.use(cors());
+    constructor(options:{dbFileName:string} = {dbFileName:"okrtable.db"}){
+        this.server = express();
+        this.server.use(express.urlencoded({extended:false}));
+        this.server.use(express.json());
+        this.server.use(cors());
         this.notifyJobs = {};
         this.autoDelayJobs = {};
 
@@ -52,26 +52,29 @@ export default class App{
             fs.mkdirSync(this.dataBaseDirectory);
         }
         
-        // remove test database file
-        if( istest ){
-            this.dataBaseFileName = 'okrtable.test.db';
-            fs.unlinkSync(path.join(this.dataBaseDirectory,this.dataBaseFileName));
-        }
-
+        this.dataBaseFileName = options.dbFileName;
         const initSql = fs.readFileSync(this.initSqlFile,'utf-8');
         this.db = Sqlite(path.join(this.dataBaseDirectory,this.dataBaseFileName),{ verbose:console.log});
         this.db.exec(initSql);
         this.initJobs();
         this.initApi();
     }
+
+    clearJobs(){
+        for(const key in this.autoDelayJobs){
+            console.log("cancel autodelay job:",key);
+            this.autoDelayJobs[key].cancel();
+        }
+        for(const key in this.notifyJobs){
+            console.log("cancel notify job:",key);
+            this.notifyJobs[key].cancel();
+        }
+
+    }
+    
 }
 
 App.prototype.initApi = function(){
-    // for jest debug
-    this.app.post('/test',(req:express.Request,res:express.Response)=>{
-        console.log(req.body.detail);
-        res.json({success:'success'});
-    })
     // start : yyyy-mm-dd
     // duration : n days
     // level: 0 or 1 optional
@@ -80,7 +83,7 @@ App.prototype.initApi = function(){
     // select all object whose ddl date in range.
     // range from yyyy-mm-dd 00:00:00 to n*24 hours later
     // n must >= 0 , if n == 0 , only select the object whose ddl is at yyyy-mm-dd 00:00:00
-    this.app.post('/',checkRequest,(req:express.Request,res:express.Response)=>{
+    this.server.post('/',checkRequest,(req:express.Request,res:express.Response)=>{
         if( !("start" in req.body) ){
             res.json({error:"no start parameter"});
             return;
@@ -113,7 +116,7 @@ App.prototype.initApi = function(){
 
     // get progress by id
     // id: yyyymmddnn
-    this.app.post('/getprogress',checkRequest,(req:express.Request,res:express.Response)=>{
+    this.server.post('/getprogress',checkRequest,(req:express.Request,res:express.Response)=>{
         if( !("id" in req.body) ){
             res.json({error:"no id parameter"});
             return;
@@ -129,7 +132,7 @@ App.prototype.initApi = function(){
     // priority: 0,1,2 optional default 2
     // state: "PENDING","INPROG","DONE","BLOCKED","KILLED" optional default "PENDING"
     // ddl: yyyy-mm-dd hh:mm:ss
-    this.app.post('/create',checkRequest,(req:express.Request,res:express.Response)=>{
+    this.server.post('/create',checkRequest,(req:express.Request,res:express.Response)=>{
         // todo check detail content for security
         if( !("detail" in req.body) ){
             res.json({error:"no detail parameter"});
@@ -192,7 +195,7 @@ App.prototype.initApi = function(){
     // update priority
     // id: yyyymmddnn
     // priority: 0,1,2
-    this.app.post('/updateprior',checkRequest,(req:express.Request,res:express.Response)=>{
+    this.server.post('/updateprior',checkRequest,(req:express.Request,res:express.Response)=>{
         if( !("id" in req.body) ){
             res.json({error:"no id parameter"});
             return;
@@ -226,7 +229,7 @@ App.prototype.initApi = function(){
     // update state
     // id: yyyymmddnn
     // state: "PENDING","INPROG","DONE","BLOCKED","KILLED"
-    this.app.post('/updatestate',checkRequest,(req:express.Request,res:express.Response)=>{
+    this.server.post('/updatestate',checkRequest,(req:express.Request,res:express.Response)=>{
         if( !("id" in req.body) ){
             res.json({error:"no id parameter"});
             return;
@@ -277,7 +280,7 @@ App.prototype.initApi = function(){
     // id: yyyymmddnn
     // ddl: 'yyyy-mm-dd hh:mm:ss'
     // todo compare ddl with current time and change state
-    this.app.post('/updateddl',checkRequest,(req:express.Request,res:express.Response)=>{
+    this.server.post('/updateddl',checkRequest,(req:express.Request,res:express.Response)=>{
         if( !("id" in req.body) ){
             res.json({error:"no id parameter"});
             return;
@@ -325,7 +328,7 @@ App.prototype.initApi = function(){
     // update progress
     // id: yyyymmddnn
     // progress: String
-    this.app.post('/updateprogress',checkRequest,(req:express.Request,res:express.Response)=>{
+    this.server.post('/updateprogress',checkRequest,(req:express.Request,res:express.Response)=>{
         if( !("id" in req.body) ){
             res.json({error:"no id parameter"});
             return;
@@ -396,7 +399,7 @@ App.prototype.updateNotifyJob = function(info:infoType){
     } 
     console.log("add notify ", notifyDate,info.level,info.id);
     // todo notify bind need bind(this,info.id)?
-    addJobs(info.id,notifyDate,this.notifyJobs,this.notify.bind(null,info.id));
+    addJobs(info.id,notifyDate,this.notifyJobs,this.notify.bind(this,info.id));
 }
 App.prototype.updateAutoDelayJob = function(info:infoType){
     if( !isActivated(info.state) ){
@@ -412,7 +415,7 @@ App.prototype.updateAutoDelayJob = function(info:infoType){
         autoDelayDate.setSeconds(autoDelayDate.getSeconds() + 10); 
     }
     console.log("add autodelay ",autoDelayDate,info.level,info.id);
-    addJobs(info.id,autoDelayDate,this.autoDelayJobs,this.autoDelay.bind(null,info.id));
+    addJobs(info.id,autoDelayDate,this.autoDelayJobs,this.autoDelay.bind(this,info.id));
 }
 App.prototype.updateStateHandler = function(info:infoType){
     let ddlDate = new Date(info.ddl);

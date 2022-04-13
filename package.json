@@ -14,8 +14,9 @@
   },
   "scripts": {
     "test": "jest --verbose dist",
-    "build": "tsc && cp init.sql ./dist/src",
-    "build-test": "npm run build && npm run test"
+    "build": "tsc",
+    "build-test": "npm run build && npm run test",
+    "server": "node ./dist/src/main.js"
   },
   "author": "",
   "license": "ISC",
