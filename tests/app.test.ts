@@ -4,8 +4,22 @@ import App from '../src/app';
 import fs = require('fs');
 import path = require('path');
 
+try{
+  fs.statSync('db');
+}
+catch(err){
+  if( err.code != "ENOENT" ){
+    throw err;
+  }
+  fs.mkdirSync('db');
+}
+
 const testdbFileName = 'okrtable.test.db';
-fs.unlinkSync(path.join('db',testdbFileName));
+if (fs.existsSync(path.join('db',testdbFileName))) {
+  fs.unlinkSync(path.join('db',testdbFileName));
+}
+
+
 const app = new App({dbFileName:testdbFileName});
 
 describe('normal test',()=>{
