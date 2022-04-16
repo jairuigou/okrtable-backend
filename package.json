@@ -14,8 +14,8 @@
   },
   "scripts": {
     "test": "jest --verbose dist",
-    "build": "tsc",
-    "build-test": "npm run build && npm run test",
+    "build": "tsc ./src/* --outDir ./dist/src",
+    "build-test": "tsc && npm run test",
     "server": "node ./dist/src/main.js"
   },
   "author": "",
