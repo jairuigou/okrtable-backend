@@ -17,11 +17,15 @@
     MAIL_FROM=${mail-from}
     MAIL_SENDTO=${mail-send-to}
     ```
-3. Start app
+3. Build and start app
     ```
-    $ node app.js
+    $ npm run build && npm run server
     ```
-use sqlite3 as database, the database file `okrtable.db` will store in `okrtable-backend/db/okrtable.db`
+4. Build and run unit tests
+    ```
+    $ npm run build-test
+    ```
+Using sqlite3 as database, the database file `okrtable.db` will be stored in `${okrtable-backend-repo-dir}/db/`. If you run unit tests, the test database `okrtable.test.db` will be automatically created in the same folder as `okrtable.db`.
 ### Deploying with docker
 1. Build docker image
     ```
