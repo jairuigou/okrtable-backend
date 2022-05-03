@@ -251,12 +251,12 @@ App.prototype.initApi = function(){
 
         const state = req.body.state;
         let stmt:Sqlite.Statement;
-        let curDate:Date;
+        let curDate:string;
         if( state == 'KILLED' || state == 'DONE' || state == 'BLOCKED' ){
             row.state = state;
             this.updateNotifyJob(row);
             this.updateAutoDelayJob(row);
-            curDate = new Date(date2str(new Date(Date.now())));
+            curDate = date2str(new Date(Date.now()));
             stmt = this.db.prepare("update info set state = '" + req.body.state + "', ddl='" + curDate + "' where id = " + req.body.id);
         }
         else{
