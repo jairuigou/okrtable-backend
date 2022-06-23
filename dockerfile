@@ -1,7 +1,8 @@
 FROM node:16 as builder
 WORKDIR /usr/src/app
 COPY package.json ./
-RUN npm install --production
+COPY package-lock.json ./
+RUN npm ci --production
 RUN npm install -g typescript
 COPY . .
 RUN npm run build
